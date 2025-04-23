@@ -1,4 +1,7 @@
+section formalisation
   --------------------------- HOMSL(ω) ----------------------------------
+
+  --- Symbols ---
   structure Symbols where
     FunSyms : Type
     PredSyms : Type
@@ -6,6 +9,8 @@
 
   variable (Syms : Symbols)
 
+
+  --- Terms ---
   structure Variable where
     name : String
   deriving Repr, BEq
@@ -20,6 +25,8 @@
   @[simp]
   axiom left_id_does_nothing : ∀ t : Term Syms, (Term.id).app t = t
 
+
+  --- Formulas---
   inductive GoalFormula where
     | atomic (A : Term Syms)
     | and (G H : GoalFormula)
@@ -42,6 +49,8 @@
 
   abbrev HOMSLDefFm := List (HOMSLDefiniteClause Syms)
 
+
+  --- Substitution ---
   def Substitution := List (Variable × Term Syms)
 
   def get_substitution (x : Variable) (s : Substitution Syms) : Option (Term Syms) :=
@@ -75,6 +84,8 @@
       unfold substitute_goal
       rfl
 
+
+  --- Proof System ---
   inductive HOMSLProof : HOMSLDefFm Syms → GoalFormula Syms → Type 2 where
   | True : (D : HOMSLDefFm Syms) → HOMSLProof D GoalFormula.true
   | And : HOMSLProof D G → HOMSLProof D H → HOMSLProof D (G.and H)
@@ -88,10 +99,11 @@
 
 
   --------------------------- MSL(ω) ----------------------------------
+
+  --- Symbols ---
   inductive FunSymsHash where
     | original : Syms.FunSyms → FunSymsHash
     | hash : Syms.PredSyms → FunSymsHash
-
 
   inductive PredSymsHash where
     | original : Syms.PredSyms → PredSymsHash
@@ -101,19 +113,7 @@
     {FunSyms := FunSymsHash Syms, PredSyms := PredSymsHash Syms}
 
 
-  inductive MSLHead : List Variable → Type where
-    | T (P : Syms.PredSyms) (ys : List Variable) : MSLHead ys
-    | og (P : Syms.PredSyms) (c : Syms.FunSyms) (ys : List Variable) : MSLHead ys
-    | refl (P : Syms.PredSyms) (c : Syms.FunSyms) (ys : List Variable) : MSLHead [{name := "z"}]
-
-  axiom refl_is_T_form (P : Syms.PredSyms) (c : Syms.FunSyms) (ys : List Variable) : MSLHead.refl P c ys = MSLHead.T P [{name := "z"}]
-
-  @[simp]
-  def update_subst (σ : Substitution (Hash Syms)) (A : MSLHead Syms ys) : Substitution (Hash Syms) :=
-    match A with
-      | MSLHead.refl _ c ys => combine_substs (Hash Syms) [({name := "z"}, (List.foldl (λ term y => Term.app term (Term.var y)) (Term.tree (FunSymsHash.original c)) ys))] σ
-      | _ => σ
-
+  --- Terms ---
   def transform_term (t : Term Syms) : Term (Hash Syms) :=
     match t with
       | Term.var x => Term.var x
@@ -122,11 +122,19 @@
       | Term.app a b => Term.app (transform_term a) (transform_term b)
       | Term.id => Term.id
 
+
+  --- Formulas ---
+  inductive MSLHead : List Variable → Type where
+    | T (P : Syms.PredSyms) (ys : List Variable) : MSLHead ys
+    | og (P : Syms.PredSyms) (c : Syms.FunSyms) (ys : List Variable) : MSLHead ys
+    | refl (P : Syms.PredSyms) (c : Syms.FunSyms) (ys : List Variable) : MSLHead [{name := "z"}]
+
+  axiom refl_is_T_form (P : Syms.PredSyms) (c : Syms.FunSyms) (ys : List Variable) : MSLHead.refl P c ys = MSLHead.T P [{name := "z"}]
+
   def transform_head (A : HOMSLHead Syms ys) : MSLHead Syms ys :=
     match A with
       | HOMSLHead.pred P ys => MSLHead.T P ys
       | HOMSLHead.predC P c ys => MSLHead.og P c ys
-
 
   def transform_goal (G : GoalFormula Syms) : GoalFormula (Hash Syms) :=
     match G with
@@ -155,8 +163,16 @@
   def transform_definite_formula (D : HOMSLDefFm Syms) : MSLDefFm Syms :=
     (D.map (transform_definite_clause Syms)).flatten
 
+  --- Substitution ---
   def transform_subst (s : Substitution Syms) : Substitution (Hash Syms) :=
     s.map (Prod.map id (transform_term Syms))
+
+    @[simp]
+  def update_subst (σ : Substitution (Hash Syms)) (A : MSLHead Syms ys) : Substitution (Hash Syms) :=
+    match A with
+      | MSLHead.refl _ c ys => combine_substs (Hash Syms) [({name := "z"}, (List.foldl (λ term y => Term.app term (Term.var y)) (Term.tree (FunSymsHash.original c)) ys))] σ
+      | _ => σ
+
 
   @[simp]
   def MSLhead2goal (A : MSLHead Syms ys) : GoalFormula (Hash Syms) :=
@@ -171,6 +187,8 @@
       | MSLDefiniteClause.forAll _ _ A => MSLhead2goal Syms A
       | MSLDefiniteClause.true => GoalFormula.true
 
+
+  --- Proof System ---
   inductive MSLProof : MSLDefFm Syms → GoalFormula (Hash Syms) → Type 2 where
     | True : (D : MSLDefFm Syms) → MSLProof D GoalFormula.true
     | And : MSLProof D G → MSLProof D H → MSLProof D (G.and H)
