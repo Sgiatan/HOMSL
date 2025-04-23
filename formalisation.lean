@@ -1,25 +1,3 @@
-section formalisation
-  mutual
-    -- Constructor Types
-    inductive CType where
-      | ind  -- ι
-      | arr (a b : CType)
-    deriving Repr
-
-    -- Predicate Types
-    inductive PredType where
-      | prop  -- o
-      | arr (a : HOMSLType) (b : PredType)
-    deriving Repr
-
-    -- Predicate Arg Types
-    inductive HOMSLType where
-      | fromC (a : CType)
-      | fromP (a : PredType)
-    deriving Repr
-
-  end
-
   --------------------------- HOMSL(ω) ----------------------------------
   structure Symbols where
     FunSyms : Type
